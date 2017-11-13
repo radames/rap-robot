@@ -26,3 +26,12 @@ Set up the defaul printer to be the thermal printer:
 sudo lpadmin -p ZJ-58 -E -v serial:/dev/ttyUSB0?baud=9600 -m zjiang/ZJ-58.ppd
 sudo lpoptions -d ZJ-58
 ```
+
+3. Install tensorflow 1.3 compiled for Python 2.7 
+
+```bash
+git clone https://github.com/DeftWork/rpi-tensorflow.git
+cd rpi-tensorflow
+pip2 install tensorflow-1.3.0-cp27-none-linux_armv7l.whl
+```
+

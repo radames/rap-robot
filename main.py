@@ -13,6 +13,7 @@ from twython import TwythonStreamer
 from twilio.rest import Client
 import pytz
 from unidecode import unidecode
+from subprocess32 import TimeoutExpired, check_output, STDOUT
 
 utc=pytz.UTC
 
@@ -63,6 +64,8 @@ def setup():
     ## open new file for writing log
     now = datetime.now(utc)
     logFile = open("logs/" + now.isoformat() + ".log", "a")
+    getNeuralNetText('Life is hard')
+
 
 def cleanTagAndSendText(text):
     ## removes punctuation
@@ -75,6 +78,16 @@ def cleanTagAndSendText(text):
     logFile.write(now.isoformat() + "  ***  "+ text +"\n")
     logFile.flush()
 
+def getNeuralNetText(start_text):
+    cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--start_text', start_text]
+    cwd ='./tensorflow-char-rnn'
+    try:
+        outs = check_output(cmd, cwd=cwd, stderr=STDOUT, timeout=60)
+        return outs
+    except TimeoutExpired:
+        logFile.write("Command timed out --- tensorflow problem")
+        print('ERROR processing tensorflow')
+        return 0
 
 def loop():
     global lastTwitterCheck, myTwitterStream, streamThread

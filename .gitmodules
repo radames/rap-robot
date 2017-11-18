@@ -1,3 +1,6 @@
 [submodule "Python-Thermal-Printer"]
 	path = Python-Thermal-Printer
 	url = https://github.com/adafruit/Python-Thermal-Printer
+[submodule "tensorflow-char-rnn"]
+	path = tensorflow-char-rnn
+	url = https://github.com/crazydonkey200/tensorflow-char-rnn.git

@@ -1,0 +1,3 @@
+[submodule "Python-Thermal-Printer"]
+	path = Python-Thermal-Printer
+	url = https://github.com/adafruit/Python-Thermal-Printer

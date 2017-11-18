@@ -32,7 +32,6 @@ def setup():
     global lastSmsCheck, mySmsClient, newestSmsSeconds
     global PHONE_NUMBER
     global logFile
-    secrets = {}
     lastTwitterCheck = time()
     lastSmsCheck = time()
     newestSmsSeconds = datetime.now(utc)
@@ -66,7 +65,7 @@ def cleanTagAndSendText(text):
 
     ## log
     now = datetime.now(utc)
-    logFile.write(now.isoformat() + "  ***  "+ text + "\n")
+    logFile.write(now.isoformat() + "  ***  "+ text +"\n")
     logFile.flush()
 
 

@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 
 import sys, re
+sys.path.append('Python-Thermal-Printer')
+from Adafruit_Thermal import *
 import json
 from time import time, sleep
 from datetime import datetime, timedelta
@@ -9,6 +12,7 @@ from queue import Queue
 from twython import TwythonStreamer
 from twilio.rest import Client
 import pytz
+from unidecode import unidecode
 
 utc=pytz.UTC
 
@@ -35,6 +39,9 @@ def setup():
     lastTwitterCheck = time()
     lastSmsCheck = time()
     newestSmsSeconds = datetime.now(utc)
+
+    printer = Adafruit_Thermal("/dev/tty.usbserial", 9600, timeout=5)
+    printer.begin(255)
 
     with open('secrets.json') as dataFile:
         data = json.load(dataFile)

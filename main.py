@@ -14,9 +14,12 @@ from twilio.rest import Client
 import pytz
 from unidecode import unidecode
 from subprocess32 import TimeoutExpired, check_output, STDOUT
+import pygame
+from pygame.locals import *
 
 utc=pytz.UTC
 
+SCREEN_RESOLUTION = (800, 480)
 class TwitterStreamReceiver(TwythonStreamer):
     def __init__(self, *args, **kwargs):
         super(TwitterStreamReceiver, self).__init__(*args, **kwargs)
@@ -37,12 +40,17 @@ def setup():
     global lastSmsCheck, mySmsClient, newestSmsSeconds
     global PHONE_NUMBER
     global logFile
+    global screen, font
     lastTwitterCheck = time()
     lastSmsCheck = time()
     newestSmsSeconds = datetime.now(utc)
 
-    printer = Adafruit_Thermal("/dev/tty.usbserial", 9600, timeout=5)
-    printer.begin(255)
+    try:
+        printer = Adafruit_Thermal("/dev/tty.usbserial", 9600, timeout=5)
+        printer.begin(255)
+    except:
+        print('Error loading serial port...')
+
 
     with open('secrets.json') as dataFile:
         data = json.load(dataFile)
@@ -64,8 +72,16 @@ def setup():
     ## open new file for writing log
     now = datetime.now(utc)
     logFile = open("logs/" + now.isoformat() + ".log", "a")
-    getNeuralNetText('Life is hard')
+    #getNeuralNetText('Life is hard')
 
+    #init pygame
+    pygame.init()
+    pygame.display.set_caption("RapRobot")
+    pygame.mouse.set_visible(False)
+    screen = pygame.display.set_mode(SCREEN_RESOLUTION)
+    screen.fill((0,0,0))
+    pygame.display.update()
+    font = pygame.font.Font("assets/HN.otf", 50)
 
 def cleanTagAndSendText(text):
     ## removes punctuation
@@ -123,18 +139,55 @@ def loop():
             cleanTagAndSendText(body)
         lastSmsCheck = time()
 
+def toggle_fullscreen():
+    #from http://pygame.org/wiki/toggle_fullscreen
+    screen = pygame.display.get_surface()
+    tmp = screen.convert()
+    caption = pygame.display.get_caption()
+    #cursor = pygame.mouse.get_cursor()  # Duoas 16-04-2007
+
+    w,h = screen.get_width(),screen.get_height()
+    flags = screen.get_flags()
+    bits = screen.get_bitsize()
+
+    pygame.display.quit()
+    pygame.display.init()
+
+    screen = pygame.display.set_mode((w,h),flags^FULLSCREEN,bits)
+    screen.blit(tmp,(0,0))
+    pygame.display.set_caption(*caption)
+
+    pygame.key.set_mods(0) #HACK: work-a-round for a SDL bug??
+
+    #pygame.mouse.set_cursor( *cursor )  # Duoas 16-04-2007
+
+    return screen
+
 if __name__=="__main__":
     setup()
 
     try:
         while(True):
-            ## keep it from looping faster than ~60 times per second
-            loopStart = time()
             loop()
-            loopTime = time()-loopStart
-            if (loopTime < 0.016):
-                sleep(0.016 - loopTime)
-    except KeyboardInterrupt :
+            screen.fill((0,0,0))
+            t = time()
+            text = font.render(str(t), True, (255,255,255))
+            text = pygame.transform.rotate(text, 90)
+            rect = text.get_rect(center=(200,240))
+            screen.blit(text, rect)
+            pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type  == pygame.KEYDOWN and event.key == pygame.K_a:
+                    screen = toggle_fullscreen()
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    raise SystemExit
+                elif event.type ==  pygame.QUIT:
+                    raise SystemExit
+
+
+    except KeyboardInterrupt, SystemExit:
+        pygame.quit()
         logFile.close()
         myTwitterStream.disconnect()
         sys.exit(0)

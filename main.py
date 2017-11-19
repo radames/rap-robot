@@ -13,7 +13,7 @@ from twython import TwythonStreamer
 from twilio.rest import Client
 import pytz
 from unidecode import unidecode
-from subprocess32 import TimeoutExpired, check_output, STDOUT
+from subprocess32 import Popen, PIPE
 import pygame
 from pygame.locals import *
 
@@ -65,9 +65,30 @@ class SMSReceiver():
     def get(self):
         return self.smsQ.get()
 
+class NeuralNetProcessor():
+        def __init__(self):
+            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '500', '--start_text']
+            self.cwd ='./tensorflow-char-rnn'
+            self.process = None
+            self.isProcessing = False
+            self.lastMessage = None
+        def start(self, start_text):
+            self.cmd.append(start_text)
+            self.process = Popen(self.cmd, cwd=self.cwd, stdout=PIPE)
+            self.isProcessing = True
+
+        def getResult(self):
+            if(self.process and self.process.poll()):
+                self.isProcessing = False
+                self.lastMessage = self.process.stdout.read()
+                print(self.lastMessage)
+                return self.lastMessage
+
+
 def setup():
     global myTwitterStream, mySmsStream
     global lastTwitterCheck, lastSmsCheck
+    global myNeuralNet
     global PHONE_NUMBER
     global logFile
     global screen, font
@@ -100,6 +121,9 @@ def setup():
     smsStreamThread = Thread(target=mySmsStream.update)
     smsStreamThread.daemon = True
     smsStreamThread.start()
+
+    myNeuralNet = NeuralNetProcessor()
+
     ## open new file for writing log
     now = datetime.now(utc)
     logFile = open("logs/" + now.isoformat() + ".log", "a")
@@ -114,29 +138,7 @@ def setup():
     pygame.display.update()
     font = pygame.font.Font("assets/HN.otf", 50)
 
-def cleanTagAndSendText(text):
-    ## removes punctuation
-    # text = re.sub(r'[.,;:!?*/+=\-&%^/\\_$~()<>{}\[\]]', ' ', text)
-    ## replaces double-spaces with single space
-    # text = re.sub(r'( +)', ' ', text)
-
-    ## log
-    now = datetime.now(utc)
-    logFile.write(now.isoformat() + "  ***  "+ unidecode(text) +"\n")
-    logFile.flush()
-
-def getNeuralNetText(start_text):
-    cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--start_text', start_text]
-    cwd ='./tensorflow-char-rnn'
-    try:
-        outs = check_output(cmd, cwd=cwd, stderr=STDOUT, timeout=60)
-        return outs
-    except TimeoutExpired:
-        logFile.write("Command timed out --- tensorflow problem")
-        print('ERROR processing tensorflow')
-        return 0
-
-def loop():
+def checkMessages():
     global myTwitterStream, mySmsStream
     global lastTwitterCheck, lastSmsCheck
     ## check twitter queue
@@ -149,15 +151,26 @@ def loop():
         ## removes hashtags, arrobas and links
         tweet = re.sub(r'(#\S+)|(@\S+)|(http://\S+)', '', tweet)
         ## clean, tag and send text
-        cleanTagAndSendText(tweet)
+        now = datetime.now(utc)
+        logFile.write(now.isoformat() + "  ***  "+ unidecode(tweet) +"\n")
+        logFile.flush()
         lastTwitterCheck = time()
+
+        return tweet
+
 
     ## check sms
     if((time()-lastSmsCheck > 2) and (not mySmsStream.empty())):
         print("Checking sms %s", time())
         sms = mySmsStream.get().lower()
-        cleanTagAndSendText(sms)
+        now = datetime.now(utc)
+        logFile.write(now.isoformat() + "  ***  "+ unidecode(sms) +"\n")
+        logFile.flush()
         lastSmsCheck = time()
+
+        return sms
+
+    return None
 
 def toggle_fullscreen():
     #from http://pygame.org/wiki/toggle_fullscreen
@@ -188,10 +201,15 @@ if __name__=="__main__":
 
     try:
         while(True):
-            loop()
+            msg = checkMessages()
             screen.fill((0,0,0))
-            t = time()
-            text = font.render(str(t), True, (255,255,255))
+
+            if(not myNeuralNet.isProcessing):
+                if(msg is not None):
+                    myNeuralNet.start(msg)
+            msg = myNeuralNet.getResult()
+            
+            text = font.render(str(msg), True, (255,255,255))
             text = pygame.transform.rotate(text, 90)
             rect = text.get_rect(center=(200,240))
             screen.blit(text, rect)

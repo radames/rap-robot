@@ -13,9 +13,10 @@ from twython import TwythonStreamer
 from twilio.rest import Client
 import pytz
 from unidecode import unidecode
-from subprocess32 import Popen, PIPE
+from subprocess32 import TimeoutExpired, check_output, STDOUT, PIPE, Popen
 import pygame
 from pygame.locals import *
+from enum import Enum
 
 utc=pytz.UTC
 
@@ -67,22 +68,36 @@ class SMSReceiver():
 
 class NeuralNetProcessor():
         def __init__(self):
-            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '500', '--start_text']
+            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '100', '--start_text']
             self.cwd ='./tensorflow-char-rnn'
-            self.process = None
             self.isProcessing = False
-            self.lastMessage = None
+            self.lastOutput = None
+            self.start_text = None
+
         def start(self, start_text):
-            self.cmd.append(start_text)
-            self.process = Popen(self.cmd, cwd=self.cwd, stdout=PIPE)
+            self.start_text = start_text
             self.isProcessing = True
+            pThread = Thread(target=self.getResult)
+            pThread.deamon = True
+            pThread.start()
 
         def getResult(self):
-            if(self.process and self.process.poll()):
-                self.isProcessing = False
-                self.lastMessage = self.process.stdout.read()
-                print(self.lastMessage)
-                return self.lastMessage
+            p = Popen(self.cmd + [self.start_text], cwd=self.cwd, stdout=PIPE, stderr=PIPE, shell=False)
+            out, err = p.communicate()
+            self.isProcessing = False
+            self.lastOutput = out
+
+            # try:
+            #     print("Start Tread")
+            #     outs = check_output(self.cmd, cwd=self.cwd, stdout=PIPE, stderr=STDOUT, timeout=60)
+            #     print("End Tread")
+            #
+            #     self.lastOutput = outs
+            #     print(self.lastOutput)
+            #     self.isProcessing = False
+            # except TimeoutExpired:
+            #     logFile.write("Command timed out --- tensorflow problem")
+            #     print('ERROR processing tensorflow')
 
 
 def setup():
@@ -196,19 +211,39 @@ def toggle_fullscreen():
 
     return screen
 
+class Flow(Enum):
+    CHECK_MSGS = 1
+    PROCESS_MSG = 2
+    WAIT_OUTPUT = 3
+    DISPLAY_PRINT = 4
+
 if __name__=="__main__":
     setup()
 
     try:
+        state = Flow.CHECK_MSGS;
+        msg = None
+        lastTime = None
         while(True):
-            msg = checkMessages()
-            screen.fill((0,0,0))
 
-            if(not myNeuralNet.isProcessing):
-                if(msg is not None):
-                    myNeuralNet.start(msg)
-            msg = myNeuralNet.getResult()
-            
+            if state == Flow.CHECK_MSGS:
+                msg = checkMessages()
+                if msg is not None:
+                    state = Flow.PROCESS_MSG
+            elif state == Flow.PROCESS_MSG:
+                myNeuralNet.start(msg)
+                state = Flow.WAIT_OUTPUT
+            elif state == Flow.WAIT_OUTPUT:
+                if(not myNeuralNet.isProcessing):
+                    state = Flow.DISPLAY_PRINT
+                    msg = myNeuralNet.lastOutput
+                    lastTime = time()
+            elif state == Flow.DISPLAY_PRINT:
+                if(time() - lastTime > 5):
+                    state = Flow.CHECK_MSGS
+
+
+            screen.fill((0,0,0))
             text = font.render(str(msg), True, (255,255,255))
             text = pygame.transform.rotate(text, 90)
             rect = text.get_rect(center=(200,240))

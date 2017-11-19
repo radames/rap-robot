@@ -20,6 +20,7 @@ from pygame.locals import *
 utc=pytz.UTC
 
 SCREEN_RESOLUTION = (800, 480)
+
 class TwitterStreamReceiver(TwythonStreamer):
     def __init__(self, *args, **kwargs):
         super(TwitterStreamReceiver, self).__init__(*args, **kwargs)
@@ -35,15 +36,43 @@ class TwitterStreamReceiver(TwythonStreamer):
     def get(self):
         return self.tweetQ.get()
 
+class SMSReceiver():
+    def __init__(self, account_sid, auth_token):
+        self.smsClient = Client(account_sid, auth_token)
+        self.smsQ = Queue()
+        self.lastTime = time()
+        self.newestSmsSeconds = datetime.now(utc)
+    def update(self):
+        while(True):
+            if(time() - self.lastTime > 1):
+                smss = self.smsClient.messages.list(to=PHONE_NUMBER, date_sent_after = self.newestSmsSeconds)
+                for sms in smss:
+                    smsSeconds = sms.date_sent
+                    if (smsSeconds > self.newestSmsSeconds):
+                        self.newestSmsSeconds = smsSeconds
+                    body = sms.body
+                    print(body)
+                    self.smsQ.put(body)
+                    sms.delete()
+
+                    # mySmsClient.api.account.messages.create(
+                    #     to=sms.from_,
+                    #     from_=sms.to,
+                    #     body="Hello, Got your message thanks")
+                self.lastTime = time()
+    def empty(self):
+        return self.smsQ.empty()
+    def get(self):
+        return self.smsQ.get()
+
 def setup():
-    global lastTwitterCheck, myTwitterStream, streamThread
-    global lastSmsCheck, mySmsClient, newestSmsSeconds
+    global myTwitterStream, mySmsStream
+    global lastTwitterCheck, lastSmsCheck
     global PHONE_NUMBER
     global logFile
     global screen, font
     lastTwitterCheck = time()
     lastSmsCheck = time()
-    newestSmsSeconds = datetime.now(utc)
 
     try:
         printer = Adafruit_Thermal("/dev/tty.usbserial", 9600, timeout=5)
@@ -67,8 +96,10 @@ def setup():
     streamThread.daemon = True
     streamThread.start()
     ## start Twilio client
-    mySmsClient = Client(data["twilio"]['ACCOUNT_SID'], data["twilio"]['AUTH_TOKEN'])
-
+    mySmsStream =  SMSReceiver(data["twilio"]['ACCOUNT_SID'], data["twilio"]['AUTH_TOKEN'])
+    smsStreamThread = Thread(target=mySmsStream.update)
+    smsStreamThread.daemon = True
+    smsStreamThread.start()
     ## open new file for writing log
     now = datetime.now(utc)
     logFile = open("logs/" + now.isoformat() + ".log", "a")
@@ -91,7 +122,7 @@ def cleanTagAndSendText(text):
 
     ## log
     now = datetime.now(utc)
-    logFile.write(now.isoformat() + "  ***  "+ text +"\n")
+    logFile.write(now.isoformat() + "  ***  "+ unidecode(text) +"\n")
     logFile.flush()
 
 def getNeuralNetText(start_text):
@@ -106,10 +137,11 @@ def getNeuralNetText(start_text):
         return 0
 
 def loop():
-    global lastTwitterCheck, myTwitterStream, streamThread
-    global lastSmsCheck, mySmsClient, newestSmsSeconds
+    global myTwitterStream, mySmsStream
+    global lastTwitterCheck, lastSmsCheck
     ## check twitter queue
     if((time()-lastTwitterCheck > 5) and (not myTwitterStream.empty())):
+        print("Checking twitter %s", time())
         tweet = myTwitterStream.get().lower()
         tweet = tweet.decode('utf-8')
         ## removes re-tweet
@@ -121,22 +153,10 @@ def loop():
         lastTwitterCheck = time()
 
     ## check sms
-    if(time()-lastSmsCheck > 2):
+    if((time()-lastSmsCheck > 2) and (not mySmsStream.empty())):
         print("Checking sms %s", time())
-        smss = mySmsClient.messages.list(to=PHONE_NUMBER, date_sent_after = newestSmsSeconds)
-        for sms in smss:
-            smsSeconds = sms.date_sent
-            if (smsSeconds > newestSmsSeconds):
-                newestSmsSeconds = smsSeconds
-            print("sms: %s" % (sms.body))
-            body = sms.body
-            mySmsClient.api.account.messages.create(
-                to=sms.from_,
-                from_=sms.to,
-                body="Hello, Got your message thanks")
-            sms.delete()
-            ## clean, tag and send text
-            cleanTagAndSendText(body)
+        sms = mySmsStream.get().lower()
+        cleanTagAndSendText(sms)
         lastSmsCheck = time()
 
 def toggle_fullscreen():

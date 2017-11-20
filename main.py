@@ -109,6 +109,7 @@ def setup():
     global PHONE_NUMBER
     global logFile
     global screen, font
+    global printer
     lastTwitterCheck = time()
     lastSmsCheck = time()
 
@@ -193,12 +194,26 @@ def checkMessages():
 
     return unicode('', 'utf8')
 
+def printText(msg):
+    global printer
+    try:
+        printer.setSize('L')   # Set type size, accepts 'S', 'M', 'L'
+        printer.println('#RapRobot')
+        printer.feed(1)
+        printer.setSize('S')
+        printer.justify('L')
+        printer.println(unidecode(msg))
+        printer.feed(4)
+    except NameError:
+        print('No printer is present')
+
 class Flow(Enum):
     CHECK_MSGS = 1
     PROCESS_MSG = 2
     WAIT_OUTPUT = 3
-    DISPLAY_PRINT = 4
-    NOTHING = 5
+    PRINT = 4
+    DISPLAY_PRINT = 5
+    NOTHING = 6
 
 if __name__=="__main__":
     setup()
@@ -207,6 +222,7 @@ if __name__=="__main__":
         state = Flow.CHECK_MSGS
         msg = unicode('', 'utf8')
         lastTime = None
+        enablePrinter = False
         while(True):
 
             if state == Flow.CHECK_MSGS:
@@ -218,8 +234,14 @@ if __name__=="__main__":
                 state = Flow.WAIT_OUTPUT
             elif state == Flow.WAIT_OUTPUT:
                 if(not myNeuralNet.isProcessing):
-                    state = Flow.DISPLAY_PRINT
+                    state = Flow.PRINT
                     msg = myNeuralNet.lastOutput
+            elif state == Flow.PRINT:
+                    if enablePrinter:
+                        printerThread = Thread(target=printText, args=(msg,))
+                        printerThread.setName('PrinterThread')
+                        printerThread.start()
+                    state = Flow.DISPLAY_PRINT
                     lastTime = time()
             elif state == Flow.DISPLAY_PRINT:
                 if(time() - lastTime > 10):
@@ -238,6 +260,9 @@ if __name__=="__main__":
             for event in pygame.event.get():
                 if event.type  == pygame.KEYDOWN and event.key == pygame.K_a:
                     pygame.display.toggle_fullscreen()
+                elif event.type  == pygame.KEYDOWN and event.key == pygame.K_p:
+                    enablePrinter = not enablePrinter
+                    print('EnablePrinter', enablePrinter)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     raise SystemExit
                 elif event.type ==  pygame.QUIT:

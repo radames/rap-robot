@@ -69,9 +69,9 @@ class SMSReceiver():
         return self.smsQ.get()
 
 class NeuralNetProcessor():
-        def __init__(self):
-            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '500', '--start_text']
-            self.cwd ='./tensorflow-char-rnn'
+        def __init__(self, working_path, model_path, length):
+            self.cmd = ['python', 'sample.py', '--init_dir', model_path, '--length', length, '--start_text']
+            self.cwd = working_path
             self.isProcessing = False
             self.lastOutput =  unicode('', 'utf8')
             self.start_text = None
@@ -141,7 +141,7 @@ def setup():
     smsStreamThread.setName('SmsThread')
     smsStreamThread.start()
 
-    myNeuralNet = NeuralNetProcessor()
+    myNeuralNet = NeuralNetProcessor(data['working_path'], data['model_path'], data['length'])
 
     ## open new file for writing log
     now = datetime.now(utc)

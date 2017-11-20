@@ -193,30 +193,6 @@ def checkMessages():
 
     return unicode('', 'utf8')
 
-def toggle_fullscreen():
-    #from http://pygame.org/wiki/toggle_fullscreen
-    screen = pygame.display.get_surface()
-    tmp = screen.convert()
-    caption = pygame.display.get_caption()
-    #cursor = pygame.mouse.get_cursor()  # Duoas 16-04-2007
-
-    w,h = screen.get_width(),screen.get_height()
-    flags = screen.get_flags()
-    bits = screen.get_bitsize()
-
-    pygame.display.quit()
-    pygame.display.init()
-
-    screen = pygame.display.set_mode((w,h),flags^FULLSCREEN,bits)
-    screen.blit(tmp,(0,0))
-    pygame.display.set_caption(*caption)
-
-    pygame.key.set_mods(0) #HACK: work-a-round for a SDL bug??
-
-    #pygame.mouse.set_cursor( *cursor )  # Duoas 16-04-2007
-
-    return screen
-
 class Flow(Enum):
     CHECK_MSGS = 1
     PROCESS_MSG = 2
@@ -261,7 +237,7 @@ if __name__=="__main__":
 
             for event in pygame.event.get():
                 if event.type  == pygame.KEYDOWN and event.key == pygame.K_a:
-                    screen = toggle_fullscreen()
+                    pygame.display.toggle_fullscreen()
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     raise SystemExit
                 elif event.type ==  pygame.QUIT:

@@ -17,10 +17,12 @@ from subprocess32 import TimeoutExpired, check_output, STDOUT, PIPE, Popen
 import pygame
 from pygame.locals import *
 from enum import Enum
+from utils import *
 
 utc=pytz.UTC
 
 SCREEN_RESOLUTION = (800, 480)
+FONT_SIZE = 20
 
 class TwitterStreamReceiver(TwythonStreamer):
     def __init__(self, *args, **kwargs):
@@ -28,7 +30,7 @@ class TwitterStreamReceiver(TwythonStreamer):
         self.tweetQ = Queue()
     def on_success(self, data):
         if ('text' in data):
-            self.tweetQ.put(data['text'].encode('utf-8'))
+            self.tweetQ.put(data['text'])
             print("received %s" % (data['text']))
     def on_error(self, status_code, data):
         print("ERROR:", status_code)
@@ -68,17 +70,17 @@ class SMSReceiver():
 
 class NeuralNetProcessor():
         def __init__(self):
-            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '100', '--start_text']
+            self.cmd = ['python', 'sample.py', '--init_dir', 'pretrained_shakespeare', '--length', '500', '--start_text']
             self.cwd ='./tensorflow-char-rnn'
             self.isProcessing = False
-            self.lastOutput = None
+            self.lastOutput =  unicode('', 'utf8')
             self.start_text = None
 
         def start(self, start_text):
             self.start_text = start_text
             self.isProcessing = True
             pThread = Thread(target=self.getResult)
-            pThread.deamon = True
+            pThread.setName('NeuraProessorThread')
             pThread.start()
 
         def getResult(self):
@@ -130,11 +132,13 @@ def setup():
                                             oauth_token_secret = data["twitter"]['ACCESS_SECRET'])
     streamThread = Thread(target=myTwitterStream.statuses.filter, kwargs={'track':','.join(SEARCH_TERMS)})
     streamThread.daemon = True
+    streamThread.setName('TwitterThread')
     streamThread.start()
     ## start Twilio client
     mySmsStream =  SMSReceiver(data["twilio"]['ACCOUNT_SID'], data["twilio"]['AUTH_TOKEN'])
     smsStreamThread = Thread(target=mySmsStream.update)
     smsStreamThread.daemon = True
+    smsStreamThread.setName('SmsThread')
     smsStreamThread.start()
 
     myNeuralNet = NeuralNetProcessor()
@@ -151,7 +155,7 @@ def setup():
     screen = pygame.display.set_mode(SCREEN_RESOLUTION)
     screen.fill((0,0,0))
     pygame.display.update()
-    font = pygame.font.Font("assets/HN.otf", 50)
+    font = pygame.font.Font("assets/HN.otf", FONT_SIZE)
 
 def checkMessages():
     global myTwitterStream, mySmsStream
@@ -160,11 +164,13 @@ def checkMessages():
     if((time()-lastTwitterCheck > 5) and (not myTwitterStream.empty())):
         print("Checking twitter %s", time())
         tweet = myTwitterStream.get().lower()
-        tweet = tweet.decode('utf-8')
+        tweet = unidecode(tweet)
         ## removes re-tweet
         tweet = re.sub(r'(^[rR][tT] )', '', tweet)
         ## removes hashtags, arrobas and links
         tweet = re.sub(r'(#\S+)|(@\S+)|(http://\S+)', '', tweet)
+        ## remove NeuralNetProcessor
+        tweet = re.sub(r"http\S+", "", tweet)
         ## clean, tag and send text
         now = datetime.now(utc)
         logFile.write(now.isoformat() + "  ***  "+ unidecode(tweet) +"\n")
@@ -185,7 +191,7 @@ def checkMessages():
 
         return sms
 
-    return None
+    return unicode('', 'utf8')
 
 def toggle_fullscreen():
     #from http://pygame.org/wiki/toggle_fullscreen
@@ -216,19 +222,20 @@ class Flow(Enum):
     PROCESS_MSG = 2
     WAIT_OUTPUT = 3
     DISPLAY_PRINT = 4
+    NOTHING = 5
 
 if __name__=="__main__":
     setup()
 
     try:
-        state = Flow.CHECK_MSGS;
-        msg = None
+        state = Flow.CHECK_MSGS
+        msg = unicode('', 'utf8')
         lastTime = None
         while(True):
 
             if state == Flow.CHECK_MSGS:
                 msg = checkMessages()
-                if msg is not None:
+                if msg is not '':
                     state = Flow.PROCESS_MSG
             elif state == Flow.PROCESS_MSG:
                 myNeuralNet.start(msg)
@@ -239,15 +246,17 @@ if __name__=="__main__":
                     msg = myNeuralNet.lastOutput
                     lastTime = time()
             elif state == Flow.DISPLAY_PRINT:
-                if(time() - lastTime > 5):
+                if(time() - lastTime > 10):
                     state = Flow.CHECK_MSGS
-
+            elif state == Flow.NOTHING:
+                state = Flow.NOTHING
 
             screen.fill((0,0,0))
-            text = font.render(str(msg), True, (255,255,255))
-            text = pygame.transform.rotate(text, 90)
-            rect = text.get_rect(center=(200,240))
-            screen.blit(text, rect)
+
+            my_rect = pygame.Rect((10, 10, 480-20, 800-20))
+            my_text = render_textrect(unidecode(msg), font, my_rect, (216, 216, 216), (48, 48, 48), 0)
+            my_text = pygame.transform.rotate(my_text, 90)
+            screen.blit(my_text, my_rect.topleft)
             pygame.display.update()
 
             for event in pygame.event.get():

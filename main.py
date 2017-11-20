@@ -113,18 +113,17 @@ def setup():
     lastTwitterCheck = time()
     lastSmsCheck = time()
 
-    try:
-        printer = Adafruit_Thermal("/dev/tty.usbserial", 9600, timeout=5)
-        printer.begin(255)
-    except:
-        print('Error loading serial port...')
-
-
     with open('secrets.json') as dataFile:
         data = json.load(dataFile)
         ## What to search for
     SEARCH_TERMS = data["search_terms"]
     PHONE_NUMBER = data["phone_number"]
+
+    try:
+        printer = Adafruit_Thermal(data["usb_port"], 9600, timeout=5)
+        printer.begin(255)
+    except:
+        print('Error loading serial port...')
 
     ## start Twitter stream reader
     myTwitterStream = TwitterStreamReceiver(app_key = data["twitter"]['CONSUMER_KEY'],

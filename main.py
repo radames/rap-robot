@@ -106,9 +106,9 @@ def setup():
     global myTwitterStream, mySmsStream
     global lastTwitterCheck, lastSmsCheck
     global myNeuralNet
-    global PHONE_NUMBER
+    global PHONE_NUMBER,PHONE_FORMAT
     global logFile
-    global screen, font
+    global screen, font, font_title
     global printer
     lastTwitterCheck = time()
     lastSmsCheck = time()
@@ -118,7 +118,7 @@ def setup():
         ## What to search for
     SEARCH_TERMS = data["search_terms"]
     PHONE_NUMBER = data["phone_number"]
-
+    PHONE_FORMAT='({}) {}-{}'.format(PHONE_NUMBER[2:5], PHONE_NUMBER[5:8], PHONE_NUMBER[8:])
     try:
         printer = Adafruit_Thermal(data["usb_port"], 9600, timeout=5)
         printer.begin(255)
@@ -156,6 +156,7 @@ def setup():
     screen.fill((0,0,0))
     pygame.display.update()
     font = pygame.font.Font("assets/HN.otf", FONT_SIZE)
+    font_title = pygame.font.Font("assets/HN.otf", FONT_SIZE*2)
 
 def checkMessages():
     global myTwitterStream, mySmsStream
@@ -191,7 +192,7 @@ def checkMessages():
 
         return sms
 
-    return unicode('', 'utf8')
+    return None
 
 def printText(msg):
     global printer
@@ -219,22 +220,27 @@ if __name__=="__main__":
 
     try:
         state = Flow.CHECK_MSGS
-        msg = unicode('', 'utf8')
-        lastTime = None
+        msg = None
+        lastTime = 0
         enablePrinter = False
         while(True):
 
             if state == Flow.CHECK_MSGS:
                 msg = checkMessages()
-                if msg is not '':
+                if msg is not None:
                     state = Flow.PROCESS_MSG
             elif state == Flow.PROCESS_MSG:
                 myNeuralNet.start(msg)
                 state = Flow.WAIT_OUTPUT
+                lastTime = time()
+                msg += " "
             elif state == Flow.WAIT_OUTPUT:
+                if(time() - lastTime > 1):
+                    msg += "."
+                    lastTime = time()
                 if(not myNeuralNet.isProcessing):
                     state = Flow.PRINT
-                    msg = myNeuralNet.lastOutput
+                    msg = myNeuralNet.lastOutput.lstrip('Sampled text is:')
             elif state == Flow.PRINT:
                     if enablePrinter:
                         printerThread = Thread(target=printText, args=(msg,))
@@ -248,12 +254,21 @@ if __name__=="__main__":
             elif state == Flow.NOTHING:
                 state = Flow.NOTHING
 
-            screen.fill((0,0,0))
 
-            my_rect = pygame.Rect((10, 10, 480-20, 800-20))
-            my_text = render_textrect(unidecode(msg), font, my_rect, (216, 216, 216), (48, 48, 48), 0)
-            my_text = pygame.transform.rotate(my_text, 90)
-            screen.blit(my_text, my_rect.topleft)
+            if(msg is None):
+                t = "\n#RapRobot\n\nText to:\n\n"+PHONE_FORMAT
+                my_rect = pygame.Rect((200, 40, 400, 300))
+                my_text = render_textrect(unidecode(t), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
+                my_text = pygame.transform.rotate(my_text, 90)
+                lastFlick = time()
+                screen.blit(my_text, my_rect.topleft)
+            else:
+                spaces = "\n\n"
+                my_rect = pygame.Rect((10, 10, 480-20, 800-20))
+                my_text = render_textrect(unidecode(spaces+msg), font, my_rect, (216, 216, 216), (48, 48, 48), 0)
+                my_text = pygame.transform.rotate(my_text, 90)
+                screen.blit(my_text, my_rect.topleft)
+
             pygame.display.update()
 
             for event in pygame.event.get():

@@ -86,8 +86,8 @@ class NeuralNetProcessor():
         def getResult(self):
             p = Popen(self.cmd + [self.start_text], cwd=self.cwd, stdout=PIPE, stderr=PIPE, shell=False)
             out, err = p.communicate()
-            self.isProcessing = False
             self.lastOutput = out
+            self.isProcessing = False
 
             # try:
             #     print("Start Tread")
@@ -173,6 +173,7 @@ def checkMessages():
         ## remove NeuralNetProcessor
         tweet = re.sub(r"http\S+", "", tweet)
         ## clean, tag and send text
+        tweet = tweet.strip()
         now = datetime.now(utc)
         logFile.write(now.isoformat() + "  ***  "+ unidecode(tweet) +"\n")
         logFile.flush()
@@ -222,7 +223,7 @@ if __name__=="__main__":
         state = Flow.CHECK_MSGS
         msg = None
         lastTime = 0
-        enablePrinter = False
+        enablePrinter = True
         while(True):
 
             if state == Flow.CHECK_MSGS:

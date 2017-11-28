@@ -13,7 +13,7 @@ from twython import TwythonStreamer
 from twilio.rest import Client
 import pytz
 from unidecode import unidecode
-from subprocess32 import TimeoutExpired, check_output, STDOUT, PIPE, Popen
+from subprocess32 import check_output, STDOUT, CalledProcessError
 import pygame
 from pygame.locals import *
 from enum import Enum
@@ -84,10 +84,17 @@ class NeuralNetProcessor():
             pThread.start()
 
         def getResult(self):
-            p = Popen(self.cmd + [self.start_text], cwd=self.cwd, stdout=PIPE, stderr=PIPE, shell=False)
-            out, err = p.communicate()
+            try:
+                out = check_output(self.cmd + [self.start_text], cwd=self.cwd, stderr=STDOUT, shell=False, timeout=60)
+            except CalledProcessError as e:
+                print(e.output)
+                logFile.write('ERROR ON SUBPROCESS\n');
+                self.isProcessing = False
+                return
+
             self.lastOutput = out
             self.isProcessing = False
+            logFile.write('Processed MSG --->  ' + out + '\n');
 
             # try:
             #     print("Start Tread")
@@ -250,7 +257,7 @@ if __name__=="__main__":
                     state = Flow.DISPLAY_PRINT
                     lastTime = time()
             elif state == Flow.DISPLAY_PRINT:
-                if(time() - lastTime > 10):
+                if(time() - lastTime > 30):
                     state = Flow.CHECK_MSGS
             elif state == Flow.NOTHING:
                 state = Flow.NOTHING

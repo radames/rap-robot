@@ -206,7 +206,7 @@ def printText(msg):
     global printer
     try:
         printer.setSize('L')   # Set type size, accepts 'S', 'M', 'L'
-        printer.println('#RapRobot')
+        printer.println('#Rapbot')
         printer.feed(1)
         printer.setSize('S')
         printer.justify('L')
@@ -264,7 +264,7 @@ if __name__=="__main__":
 
 
             if(msg is None):
-                t = "\n#RapRobot\n\nText to:\n\n"+PHONE_FORMAT
+                t = "\n#Rapbot\n\nText to:\n\n"+PHONE_FORMAT
                 my_rect = pygame.Rect((200, 40, 400, 300))
                 my_text = render_textrect(unidecode(t), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
                 my_text = pygame.transform.rotate(my_text, 90)

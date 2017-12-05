@@ -69,8 +69,8 @@ class SMSReceiver():
         return self.smsQ.get()
 
 class NeuralNetProcessor():
-        def __init__(self, working_path, model_path, length):
-            self.cmd = ['python', 'sample.py', '--init_dir', model_path, '--length', length, '--start_text']
+        def __init__(self, working_path, model_path, length, temp):
+            self.cmd = ['python', 'sample.py', '--init_dir', model_path, '--length', length, '--temperature', temp, '--start_text']
             self.cwd = working_path
             self.isProcessing = False
             self.lastOutput =  unicode('', 'utf8')
@@ -148,7 +148,7 @@ def setup():
     smsStreamThread.setName('SmsThread')
     smsStreamThread.start()
 
-    myNeuralNet = NeuralNetProcessor(data['working_path'], data['model_path'], data['length'])
+    myNeuralNet = NeuralNetProcessor(data['working_path'], data['model_path'], data['length'], data['temperature'])
 
     ## open new file for writing log
     now = datetime.now(utc)

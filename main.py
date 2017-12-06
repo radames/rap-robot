@@ -235,7 +235,7 @@ def tweetMsg(msg):
         yield tweet
 
     try:
-        head = ""
+        head = "#rapbot"
         firstTweetID = None
         for tweet in getTweet(msg):
             print(tweet)
@@ -243,7 +243,7 @@ def tweetMsg(msg):
             t = myTwitterClient.update_status(status= head + tweet, in_reply_to_status_id = firstTweetID)
             if(firstTweetID == None):
                 firstTweetID = t['id']
-                head = "@rapresearchlab "
+                head = "@rapresearchlab #rapbot"
             sleep(1)
 
     except TwythonError as e:

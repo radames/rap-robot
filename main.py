@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from queue import Queue
 from twython import TwythonStreamer
+from twython import Twython, TwythonError
 from twilio.rest import Client
 import pytz
 from unidecode import unidecode
@@ -110,7 +111,7 @@ class NeuralNetProcessor():
 
 
 def setup():
-    global myTwitterStream, mySmsStream
+    global myTwitterStream, myTwitterClient, mySmsStream
     global lastTwitterCheck, lastSmsCheck
     global myNeuralNet
     global PHONE_NUMBER,PHONE_FORMAT
@@ -137,6 +138,12 @@ def setup():
                                             app_secret = data["twitter"]['CONSUMER_SECRET'],
                                             oauth_token = data["twitter"]['ACCESS_TOKEN'],
                                             oauth_token_secret = data["twitter"]['ACCESS_SECRET'])
+    #twitter client to post twitts
+    myTwitterClient = Twython(app_key = data["twitter"]['CONSUMER_KEY'],
+                                            app_secret = data["twitter"]['CONSUMER_SECRET'],
+                                            oauth_token = data["twitter"]['ACCESS_TOKEN'],
+                                            oauth_token_secret = data["twitter"]['ACCESS_SECRET'])
+
     streamThread = Thread(target=myTwitterStream.statuses.filter, kwargs={'track':','.join(SEARCH_TERMS)})
     streamThread.daemon = True
     streamThread.setName('TwitterThread')
@@ -215,6 +222,33 @@ def printText(msg):
     except NameError:
         print('No printer is present')
 
+def tweetMsg(msg):
+    global myTwitterClient
+
+    def getTweet(msg):
+        tweet = ""
+        for e in msg.split():
+             tweet += " " + e
+             if(len(tweet) >=200):
+                 yield tweet
+                 tweet = ""
+        yield tweet
+
+    try:
+        head = ""
+        firstTweetID = None
+        for tweet in getTweet(msg):
+            print(tweet)
+            print("\n")
+            t = myTwitterClient.update_status(status= head + tweet, in_reply_to_status_id = firstTweetID)
+            if(firstTweetID == None):
+                firstTweetID = t['id']
+                head = "@rapresearchlab "
+            sleep(1)
+
+    except TwythonError as e:
+        print(e)
+
 class Flow(Enum):
     CHECK_MSGS = 1
     PROCESS_MSG = 2
@@ -231,6 +265,7 @@ if __name__=="__main__":
         msg = None
         lastTime = 0
         enablePrinter = True
+        enableTweet = True
         while(True):
 
             if state == Flow.CHECK_MSGS:
@@ -250,6 +285,10 @@ if __name__=="__main__":
                     state = Flow.PRINT
                     msg = myNeuralNet.lastOutput.lstrip('Sampled text is:')
             elif state == Flow.PRINT:
+                    if enableTweet:
+                        tweetMsgThread = Thread(target=tweetMsg, args=(msg,))
+                        tweetMsgThread.setName("tweetMsgThread")
+                        tweetMsgThread.start()
                     if enablePrinter:
                         printerThread = Thread(target=printText, args=(msg,))
                         printerThread.setName('PrinterThread')
@@ -277,7 +316,6 @@ if __name__=="__main__":
                 my_text = pygame.transform.rotate(my_text, 90)
                 screen.blit(my_text, my_rect.topleft)
 
-            pygame.display.update()
 
             for event in pygame.event.get():
                 if event.type  == pygame.KEYDOWN and event.key == pygame.K_a:
@@ -285,10 +323,21 @@ if __name__=="__main__":
                 elif event.type  == pygame.KEYDOWN and event.key == pygame.K_p:
                     enablePrinter = not enablePrinter
                     print('EnablePrinter', enablePrinter)
+                    my_text = render_textrect('EnablePrinter: ' + str(enablePrinter), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
+                    my_text = pygame.transform.rotate(my_text, 90)
+                    screen.blit(my_text, my_rect.topleft)
+                elif event.type  == pygame.KEYDOWN and event.key == pygame.K_t:
+                    enableTweet = not enableTweet
+                    print('Disable Twitter', enableTweet)
+                    my_text = render_textrect('Enable Twitter: ' + str(enableTweet), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
+                    my_text = pygame.transform.rotate(my_text, 90)
+                    screen.blit(my_text, my_rect.topleft)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     raise SystemExit
                 elif event.type ==  pygame.QUIT:
                     raise SystemExit
+
+            pygame.display.update()
 
 
     except KeyboardInterrupt, SystemExit:

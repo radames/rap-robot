@@ -24,13 +24,14 @@ utc=pytz.UTC
 
 SCREEN_RESOLUTION = (800, 480)
 FONT_SIZE = 20
-
+TWITTER_HANDLE = "rapresearchlab"
+TWITTER_HASH =  " #rapbot"
 class TwitterStreamReceiver(TwythonStreamer):
     def __init__(self, *args, **kwargs):
         super(TwitterStreamReceiver, self).__init__(*args, **kwargs)
         self.tweetQ = Queue()
     def on_success(self, data):
-        if ('text' in data):
+        if ('text' in data and data['user']['screen_name'] != TWITTER_HANDLE):
             self.tweetQ.put(data['text'])
             print("received %s" % (data['text']))
     def on_error(self, status_code, data):
@@ -235,15 +236,15 @@ def tweetMsg(msg):
         yield tweet
 
     try:
-        head = "#rapbot"
+        head = ""
         firstTweetID = None
         for tweet in getTweet(msg):
             print(tweet)
             print("\n")
-            t = myTwitterClient.update_status(status= head + tweet, in_reply_to_status_id = firstTweetID)
+            t = myTwitterClient.update_status(status= head + tweet + TWITTER_HASH, in_reply_to_status_id = firstTweetID)
             if(firstTweetID == None):
                 firstTweetID = t['id']
-                head = "@rapresearchlab #rapbot"
+                head = "@"+ TWITTER_HANDLE + " "
             sleep(1)
 
     except TwythonError as e:

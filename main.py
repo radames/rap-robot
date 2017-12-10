@@ -307,14 +307,14 @@ if __name__=="__main__":
                 t = "\n#Rapbot\n\nText to:\n\n"+PHONE_FORMAT
                 my_rect = pygame.Rect((200, 40, 400, 300))
                 my_text = render_textrect(unidecode(t), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
-                my_text = pygame.transform.rotate(my_text, 90)
+                my_text = pygame.transform.rotate(my_text, -90)
                 lastFlick = time()
                 screen.blit(my_text, my_rect.topleft)
             else:
                 spaces = "\n\n"
                 my_rect = pygame.Rect((10, 10, 480-20, 800-20))
                 my_text = render_textrect(unidecode(spaces+msg), font, my_rect, (216, 216, 216), (48, 48, 48), 0)
-                my_text = pygame.transform.rotate(my_text, 90)
+                my_text = pygame.transform.rotate(my_text, -90)
                 screen.blit(my_text, my_rect.topleft)
 
 
@@ -325,13 +325,13 @@ if __name__=="__main__":
                     enablePrinter = not enablePrinter
                     print('EnablePrinter', enablePrinter)
                     my_text = render_textrect('EnablePrinter: ' + str(enablePrinter), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
-                    my_text = pygame.transform.rotate(my_text, 90)
+                    my_text = pygame.transform.rotate(my_text, -90)
                     screen.blit(my_text, my_rect.topleft)
                 elif event.type  == pygame.KEYDOWN and event.key == pygame.K_t:
                     enableTweet = not enableTweet
                     print('Disable Twitter', enableTweet)
                     my_text = render_textrect('Enable Twitter: ' + str(enableTweet), font_title, my_rect, (216, 216, 216), (48, 48, 48), 1)
-                    my_text = pygame.transform.rotate(my_text, 90)
+                    my_text = pygame.transform.rotate(my_text, -90)
                     screen.blit(my_text, my_rect.topleft)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     raise SystemExit

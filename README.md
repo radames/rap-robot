@@ -39,7 +39,7 @@ pip2 install tensorflow-1.3.0-cp27-none-linux_armv7l.whl
 
 ```bash
 
-pip install subprocess32 unidecode twython twilio
+pip install subprocess32 unidecode twython twilio pygame
 
 ```
 

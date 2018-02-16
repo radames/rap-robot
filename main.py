@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys, re
 sys.path.append('Python-Thermal-Printer')
 from Adafruit_Thermal import *
+from escpos.printer import File
 import json
 from time import time, sleep
 from datetime import datetime, timedelta
@@ -118,7 +119,7 @@ def setup():
     global PHONE_NUMBER,PHONE_FORMAT
     global logFile
     global screen, font, font_title
-    global printer
+    global printer, PRT_MODEL
     lastTwitterCheck = time()
     lastSmsCheck = time()
 
@@ -128,9 +129,13 @@ def setup():
     SEARCH_TERMS = data["search_terms"]
     PHONE_NUMBER = data["phone_number"]
     PHONE_FORMAT='({}) {}-{}'.format(PHONE_NUMBER[2:5], PHONE_NUMBER[5:8], PHONE_NUMBER[8:])
+    PRT_MODEL = data["printer_model"]
     try:
-        printer = Adafruit_Thermal(data["usb_port"], 9600, timeout=5)
-        printer.begin(255)
+        if PRT_MODEL == "adafruit":
+            printer = Adafruit_Thermal(data["usb_port"], 9600, timeout=5)
+            printer.begin(255)
+        elif PRT_MODEL == "epson":
+            printer = File("/dev/usb/lp0")
     except:
         print('Error loading serial port...')
 
@@ -213,13 +218,22 @@ def checkMessages():
 def printText(msg):
     global printer
     try:
-        printer.setSize('L')   # Set type size, accepts 'S', 'M', 'L'
-        printer.println('#Rapbot')
-        printer.feed(1)
-        printer.setSize('S')
-        printer.justify('L')
-        printer.println(unidecode(msg))
-        printer.feed(4)
+        if PRT_MODEL == 'adafruit':
+            printer.setSize('L')   # Set type size, accepts 'S', 'M', 'L'
+            printer.println('#Rapbot')
+            printer.feed(1)
+            printer.setSize('S')
+            printer.justify('L')
+            printer.println(unidecode(msg))
+            printer.feed(4)
+        elif PRT_MODEL == 'epson':
+            printer.set(width=2, height=2, density=9, invert=False)
+            printer.text('#Rapbot')
+            printer.text(2*'\n')
+            printer.set(width=1, height=1, density=9, invert=False)
+            printer.text(unidecode(msg))
+            printer.text(2*'\n')
+            printer.cut()
     except NameError:
         print('No printer is present')
 
